@@ -94,6 +94,9 @@ def sinplot(ctx, flip):
     for i in range(1,7):
         plt.plot(x, np.sin(x + i * .5) * (7 - i) * flip)
 
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
+
     produce_plot(outfile)
 
 @click.command()
@@ -103,7 +106,10 @@ def boxplot(ctx):
     outfile = ctx.obj.get('outfile')
     LOG.info("Creating boxplot")
     data = np.random.normal(size=(20,6)) + np.arange(6) / 2
-    sns.boxplot(data=data, palette=palette)
+    sns.boxplot(data=data)
+
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
 
     produce_plot(outfile)
 
@@ -117,15 +123,43 @@ def violinplot(ctx):
     f, ax = plt.subplots()
     sns.violinplot(data=data)
 
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
+
     produce_plot(outfile)
 
 @click.command()
+@click.option('-n', '--nr-colors', 
+    default=10,
+)
+@click.option('-s', '--saturation', 
+    type=float,
+)
+@click.option('-l', '--lightness', 
+    type=float,
+)
 @click.pass_context
-def palplot(ctx):
+def palplot(ctx, nr_colors, saturation, lightness):
     """Plots a color palette"""
     outfile = ctx.obj.get('outfile')
     LOG.info("Creating palplot")
-    sns.palplot(palette)
+    palette = ctx.obj.get('palette')
+    kwargs = {}
+    if saturation:
+        kwargs['s'] = saturation
+    if lightness:
+        kwargs['l'] = lightness
+    if not palette:
+        current_palette = sns.color_palette()
+    else:
+        if palette == 'hls':
+            current_palette = sns.hls_palette(nr_colors, **kwargs)
+        else:
+            current_palette = sns.color_palette(palette, nr_colors, **kwargs)
+    sns.palplot(current_palette)
+
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
 
     produce_plot(outfile)
 
@@ -138,6 +172,9 @@ def kdeplot(ctx):
     x, y = np.random.multivariate_normal([0, 0], [[1, -.5], [-.5, 1]], size=300).T
     cmap = sns.cubehelix_palette(light=1, as_cmap=True)
     sns.kdeplot(x, y, cmap=cmap, shade=True)
+
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
 
     produce_plot(outfile)
 
@@ -221,6 +258,7 @@ def cli(ctx, style, scaling, plot, dataset, palette, reverse_palette, dark_palet
     sns.set_palette(palette)
     ctx.obj = {}
     ctx.obj['outfile'] = outfile
+    ctx.obj['palette'] = palette
     data = None
     if file_path:
         LOG.info("Loading data frame from %s", file_path)
