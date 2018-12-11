@@ -13,6 +13,8 @@ cd seaviz
 python setup.py install
 ```
 
+or `pip install seaviz`
+
 ## Run
 
 ```
