@@ -37,8 +37,7 @@ def produce_plot(outfile):
 
 @click.command()
 @click.option('-k', '--kind', 
-    type=click.Choice(['point', 'bar', 'strip', 'swarm',
-    'box', 'violin', 'boxen']),
+    type=click.Choice(['point', 'bar', 'strip', 'swarm', 'box', 'violin', 'boxen']),
     default='strip',
     help="Cat plots can have different styles",
 )
@@ -114,14 +113,20 @@ def boxplot(ctx):
     produce_plot(outfile)
 
 @click.command()
+@click.option('--scale',
+    type=click.Choice(['area', 'width', 'count']),
+    default='area',
+)
 @click.pass_context
-def violinplot(ctx):
+def violinplot(ctx, scale):
     """Plots a violinplot"""
     outfile = ctx.obj.get('outfile')
     LOG.info("Creating violinplot")
-    data = np.random.normal(size=(20,6)) + np.arange(6) / 2
+    data = ctx.obj.get('data')
+    if data is None:
+        data = np.random.normal(size=(20,6)) + np.arange(6) / 2
     f, ax = plt.subplots()
-    sns.violinplot(data=data)
+    sns.violinplot(data=data, scale=scale)
 
     if ctx.obj.get('despine'):
         despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
