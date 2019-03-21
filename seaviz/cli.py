@@ -104,7 +104,9 @@ def boxplot(ctx):
     """Plots a boxplot"""
     outfile = ctx.obj.get('outfile')
     LOG.info("Creating boxplot")
-    data = np.random.normal(size=(20,6)) + np.arange(6) / 2
+    data = ctx.obj.get('data')
+    if data is None:
+        data = np.random.normal(size=(20,6)) + np.arange(6) / 2
     sns.boxplot(data=data)
 
     if ctx.obj.get('despine'):
@@ -127,6 +129,37 @@ def violinplot(ctx, scale):
         data = np.random.normal(size=(20,6)) + np.arange(6) / 2
     f, ax = plt.subplots()
     sns.violinplot(data=data, scale=scale)
+
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
+
+    produce_plot(outfile)
+
+@click.command()
+@click.option('-c', '--columns', 
+    multiple=True,
+    help="Specify name of columns to plot"
+)
+@click.pass_context
+def distplot(ctx, columns):
+    """Plots a violinplot"""
+    outfile = ctx.obj.get('outfile')
+    LOG.info("Creating distplot")
+    data = ctx.obj.get('data')
+    if data is None:
+        data = pd.DataFrame({'x': np.random.normal(size=100)})
+        columns = ('x')
+    f, ax = plt.subplots()
+    if not columns:
+        LOG.warning("Please specify what columns to plot")
+        ctx.abort()
+    try:
+        for i in columns:
+            sns.distplot(data[i])
+    except KeyError as err:
+        LOG.warning("Column %s does not exist in data", i)
+        LOG.info("Existing columns: %s", ', '.join(list(data)))
+        ctx.abort()
 
     if ctx.obj.get('despine'):
         despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
@@ -169,14 +202,77 @@ def palplot(ctx, nr_colors, saturation, lightness):
     produce_plot(outfile)
 
 @click.command()
+@click.option('-x', '--x-axis', 
+    help="Specify the x-axis",
+)
+@click.option('-y', '--y-axis',
+    help="Specify the x-axis",
+)
+@click.option('--hue',
+    help="Specify the hue",
+)
+@click.option('--err-style',
+    type=click.Choice(['band', 'bars']),
+    default='band',
+    show_default=True,
+    help="Specify the error styles",
+)
 @click.pass_context
-def kdeplot(ctx):
+def lineplot(ctx, x_axis, y_axis, hue, err_style):
+    """Plots a line plot"""
+    outfile = ctx.obj.get('outfile')
+    LOG.info("Creating lineplot")
+    kwargs = {}
+
+    if ctx.obj.get('despine'):
+        despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
+
+    data = ctx.obj.get('data')
+    if data is None:
+        data = sns.load_dataset("fmri")
+        x_axis = "timepoint"
+        y_axis = "signal"
+        hue = "event"
+    
+    
+    sns.lineplot(x=x_axis, y=y_axis, hue=hue, data=data, err_style=err_style)
+    
+    produce_plot(outfile)
+
+
+@click.command()
+@click.pass_context
+@click.option('-c', '--columns', 
+    multiple=True,
+    help="Specify name of columns to plot"
+)
+def kdeplot(ctx, columns):
     """Fit and plot a univariate or bivariate kernel density estimate"""
     outfile = ctx.obj.get('outfile')
     LOG.info("Creating kdeplot")
     x, y = np.random.multivariate_normal([0, 0], [[1, -.5], [-.5, 1]], size=300).T
-    cmap = sns.cubehelix_palette(light=1, as_cmap=True)
-    sns.kdeplot(x, y, cmap=cmap, shade=True)
+    data = ctx.obj.get('data')
+    if data is None:
+        data = np.random.multivariate_normal([0, 0], [[5, 2], [2, 2]], size=2000)
+        data = pd.DataFrame(data, columns=['x','y'])
+        columns = ('x', 'y')
+    
+    # cmap = sns.cubehelix_palette(light=1, as_cmap=True)
+    # sns.kdeplot(x, y, cmap=cmap, shade=True)
+
+    if not columns:
+        LOG.warning("Please specify what columns to plot")
+        ctx.abort()
+
+    try:
+        for col in columns:
+            sns.kdeplot(data[col], shade=True)
+    except KeyError as err:
+        LOG.warning("Column %s does not exist in data", col)
+        LOG.info("Existing columns: %s", ', '.join(list(data)))
+        ctx.abort()
+
+
 
     if ctx.obj.get('despine'):
         despine_plot(ctx.obj.get('offset'), ctx.obj.get('trim',False), ctx.obj.get('left',False))
@@ -195,10 +291,6 @@ def kdeplot(ctx):
     type=click.Choice(['paper', 'notebook', 'talk', 'poster']),
     default='notebook',
     help="Change relative style depending on context",
-)
-@click.option('-p', '--plot', 
-    type=click.Choice(['sinplot', 'boxplot', 'violinplot', 'palplot', 'kdeplot', 'catplot']),
-    help="What kind of plot to check"
 )
 @click.option('--dataset', 
     type=click.Choice(['tips', 'titanic', 'diamonds']),
@@ -238,7 +330,7 @@ def kdeplot(ctx):
     help="If plot should be saved to a file"
 )
 @click.pass_context
-def cli(ctx, style, scaling, plot, dataset, palette, reverse_palette, dark_palette, 
+def cli(ctx, style, scaling, dataset, palette, reverse_palette, dark_palette, 
                  file_path, despine, trim, despine_left, outfile):
     """Plot results.
     Info from https://seaborn.pydata.org/tutorial/aesthetics.html and
@@ -283,6 +375,8 @@ cli.add_command(boxplot)
 cli.add_command(violinplot)
 cli.add_command(palplot)
 cli.add_command(kdeplot)
+cli.add_command(distplot)
+cli.add_command(lineplot)
 
 if __name__=='__main__':
     cli()
